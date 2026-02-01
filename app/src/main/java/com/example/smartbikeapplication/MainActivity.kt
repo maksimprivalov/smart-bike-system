@@ -3,10 +3,10 @@ package com.example.smartbikeapplication
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.activity.compose.setContent
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -15,26 +15,38 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.smartbikeapplication.ui.main.MainScreen
 import com.example.smartbikeapplication.ui.main.SensorViewModel
 import com.example.smartbikeapplication.ui.theme.SmartBikeApplicationTheme
+import com.example.smartbikeapplication.ui.map.MapScreen
+import com.example.smartbikeapplication.ui.navigation.Routes
+import com.example.smartbikeapplication.ui.sensors.SensorsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        enableEdgeToEdge()
-//        setContent {
-//            SmartBikeApplicationTheme {
-//                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//                    Greeting(
-//                        name = "Android",
-//                        modifier = Modifier.padding(innerPadding)
-//                    )
-//                }
-//            }
-//        }
 
         setContent {
             SmartBikeApplicationTheme {
-                val viewModel = remember { SensorViewModel() }
-                MainScreen(viewModel)
+
+                val navController = rememberNavController()
+
+                NavHost(
+                    navController = navController,
+                    startDestination = Routes.Sensors.route
+                ) {
+                    composable(Routes.Sensors.route) {
+                        SensorsScreen(
+                            onOpenMap = {
+                                navController.navigate(Routes.Map.route)
+                            }
+                        )
+                    }
+                    composable(Routes.Map.route) {
+                        MapScreen(
+                            onBack = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+                }
             }
         }
     }

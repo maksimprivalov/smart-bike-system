@@ -60,4 +60,10 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+//    implementation(libs.android.sdk)
+//    implementation(libs.mapboxsdk.plugin.locationlayer)
+    implementation(libs.osmdroid.android)
+    implementation(libs.play.services.location)
+
+    implementation(libs.androidx.navigation.compose)
 }
