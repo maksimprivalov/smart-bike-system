@@ -1,27 +1,39 @@
 package com.example.smartbikeapplication
 
+import android.Manifest
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.smartbikeapplication.ui.main.MainScreen
-import com.example.smartbikeapplication.ui.main.SensorViewModel
-import com.example.smartbikeapplication.ui.theme.SmartBikeApplicationTheme
 import com.example.smartbikeapplication.ui.map.MapScreen
 import com.example.smartbikeapplication.ui.navigation.Routes
 import com.example.smartbikeapplication.ui.sensors.SensorsScreen
+import com.example.smartbikeapplication.ui.theme.SmartBikeApplicationTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val bluetoothPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { perms ->
+            val granted = perms.values.all { it }
+            if (granted) {
+                Log.d("BT", "Permissions granted")
+
+            } else {
+                Log.e("BT", "Permissions denied")
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        requestBtPermissions()
 
         setContent {
             SmartBikeApplicationTheme {
@@ -50,20 +62,29 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    private fun requestBtPermissions() {
+        val perms = arrayOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SmartBikeApplicationTheme {
-        Greeting("Android")
+        bluetoothPermissionLauncher.launch(perms)
     }
 }
+//@Composable
+//fun Greeting(name: String, modifier: Modifier = Modifier) {
+//    Text(
+//        text = "Hello $name!",
+//        modifier = modifier
+//    )
+//}
+//
+//@Preview(showBackground = true)
+//@Composable
+//fun GreetingPreview() {
+//    SmartBikeApplicationTheme {
+//        Greeting("Android")
+//    }
+//}
