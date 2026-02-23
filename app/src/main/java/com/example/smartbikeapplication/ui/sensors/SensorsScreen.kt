@@ -25,6 +25,8 @@ fun SensorsScreen(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
+        println("🔥 SensorsScreen LaunchedEffect")
+
         viewModel.startBluetooth(
             context.applicationContext,
             "2C:CF:67:20:C9:E0"

@@ -19,17 +19,23 @@ class SensorViewModel : ViewModel() {
     val state: StateFlow<SensorResponse?> = _state
 
     fun startBluetooth(context: Context, mac: String) {
+
+        println(" startBluetooth CALLED")
+
         repository = BluetoothRepository(context)
 
         viewModelScope.launch {
+            println(" trying connect...")
+
             val connected = repository?.connect(mac) ?: false
+            println(" connect result = $connected")
 
             if (!connected) {
-                println("BT CONNECT FAILED")
+                println(" BT CONNECT FAILED")
                 return@launch
             }
 
-            println("BT CONNECTED")
+            println(" BT CONNECTED")
 
             while (isActive) {
                 try {
@@ -40,6 +46,7 @@ class SensorViewModel : ViewModel() {
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+
                 delay(1000)
             }
         }

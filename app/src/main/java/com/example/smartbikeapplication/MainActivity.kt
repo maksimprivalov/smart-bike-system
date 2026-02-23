@@ -37,32 +37,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        Log.e("TEST_BT", "MAIN ACTIVITY STARTED")
         requestBtPermissions()
 
         setContent {
-            SmartBikeApplicationTheme {
-
-                val navController = rememberNavController()
-
-                NavHost(
-                    navController = navController,
-                    startDestination = Routes.Sensors.route
-                ) {
-                    composable(Routes.Sensors.route) {
-                        SensorsScreen(
-                            onOpenMap = {
-                                navController.navigate(Routes.Map.route)
-                            }
-                        )
-                    }
-                    composable(Routes.Map.route) {
-                        MapScreen(
-                            onBack = {
-                                navController.popBackStack()
-                            }
-                        )
-                    }
+            setContent {
+                SmartBikeApplicationTheme {
+                    SensorsScreen(
+                        onOpenMap = {}
+                    )
                 }
             }
         }

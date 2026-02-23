@@ -19,6 +19,7 @@ class BluetoothClient {
         UUID.fromString("94f39d29-7d6d-437d-973b-fba39e49d4ee")
 
     private var socket: BluetoothSocket? = null
+    private var reader: BufferedReader? = null
 
     suspend fun connect(context: Context, macAddress: String): Boolean =
         withContext(Dispatchers.IO) {
@@ -34,14 +35,22 @@ class BluetoothClient {
                 val adapter = BluetoothAdapter.getDefaultAdapter()
                 val device: BluetoothDevice = adapter.getRemoteDevice(macAddress)
 
-                socket = device.createRfcommSocketToServiceRecord(uuid)
                 adapter.cancelDiscovery()
 
+                println("🔥 creating RFCOMM socket on channel 1")
+
+                // ✅ ЖЁСТКО на канал 1 — САМЫЙ СТАБИЛЬНЫЙ ВАРИАНТ
+                val method = device.javaClass.getMethod(
+                    "createRfcommSocket",
+                    Int::class.javaPrimitiveType
+                )
+
+                socket = method.invoke(device, 1) as BluetoothSocket
                 socket?.connect()
+
+                println("✅ RFCOMM connected")
                 true
-            } catch (e: SecurityException) {
-                e.printStackTrace()
-                false
+
             } catch (e: Exception) {
                 e.printStackTrace()
                 false
@@ -50,14 +59,17 @@ class BluetoothClient {
 
     suspend fun readLine(): String? = withContext(Dispatchers.IO) {
         try {
-            val reader = BufferedReader(InputStreamReader(socket?.inputStream))
-            reader.readLine()
+            reader?.readLine()
         } catch (e: Exception) {
             null
         }
     }
 
     fun close() {
-        socket?.close()
+        try {
+            reader?.close()
+            socket?.close()
+        } catch (_: Exception) {
+        }
     }
 }
