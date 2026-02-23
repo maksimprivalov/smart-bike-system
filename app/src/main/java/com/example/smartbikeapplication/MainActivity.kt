@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.smartbikeapplication.ui.main.SensorViewModel
 import com.example.smartbikeapplication.ui.map.MapScreen
 import com.example.smartbikeapplication.ui.navigation.Routes
 import com.example.smartbikeapplication.ui.sensors.SensorsScreen
@@ -23,7 +24,11 @@ class MainActivity : ComponentActivity() {
         ) { perms ->
             val granted = perms.values.all { it }
             if (granted) {
-                Log.d("BT", "Permissions granted")
+                val vm = SensorViewModel()
+                vm.startBluetooth(
+                    applicationContext,
+                    "2C:CF:67:20:C9:E0"
+                )
 
             } else {
                 Log.e("BT", "Permissions denied")

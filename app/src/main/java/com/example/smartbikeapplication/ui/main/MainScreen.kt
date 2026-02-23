@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun MainScreen(
@@ -16,8 +17,13 @@ fun MainScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
-        viewModel.startAutoRefresh()
+        viewModel.startBluetooth(
+            context.applicationContext,
+            "2C:CF:67:20:C9:E0"
+        )
     }
 
     Column(
@@ -28,9 +34,10 @@ fun MainScreen(
         if (state == null) {
             Text(text = "Downloading...")
         } else {
-            Text(text = "Temperature: ${state!!.temperature} °C")
-            Text(text = "Humidity: ${state!!.humidity} %")
-            Text(text = "Pressure: ${state!!.pressure} hPa")
+            Text(text = "Speed: ${state!!.speed.current} km/h")
+            Text(text = "Light level: ${state!!.system.light_level}")
+            Text(text = "Lat: ${state!!.gps.lat}")
+            Text(text = "Lon: ${state!!.gps.lon}")
         }
     }
 }
