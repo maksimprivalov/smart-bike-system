@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,10 +35,10 @@ fun SensorsScreen(
     val viewModel: SensorViewModel = viewModel()
     val state by viewModel.state.collectAsState()
     val status by viewModel.status.collectAsState()
-    val context = LocalContext.current
-
     LaunchedEffect(Unit) {
-        viewModel.startBluetooth(context.applicationContext, "2C:CF:67:20:C9:E0")
+        // TODO: switch to startBluetooth when Pi sensors are ready
+        viewModel.startDemo()
+        // val context = ... viewModel.startBluetooth(context.applicationContext, "2C:CF:67:20:C9:E0")
     }
 
     Scaffold(
@@ -46,7 +47,7 @@ fun SensorsScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Filled.DirectionsBike,
+                            Icons.AutoMirrored.Filled.DirectionsBike,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp)
                         )
@@ -108,17 +109,20 @@ private fun ConnectionChip(status: BtStatus) {
         BtStatus.CONNECTED -> Color(0xFF4CAF50)
         BtStatus.CONNECTING -> Color(0xFFFFC107)
         BtStatus.FAILED -> Color(0xFFF44336)
+        BtStatus.DEMO -> Color(0xFF42A5F5)
         BtStatus.IDLE -> Color(0xFF9E9E9E)
     }
     val icon: ImageVector = when (status) {
         BtStatus.CONNECTED -> Icons.Filled.BluetoothConnected
         BtStatus.FAILED -> Icons.Filled.BluetoothDisabled
+        BtStatus.DEMO -> Icons.Filled.PlayArrow
         else -> Icons.Filled.Bluetooth
     }
     val label = when (status) {
         BtStatus.CONNECTED -> "Connected"
         BtStatus.CONNECTING -> "Connecting..."
         BtStatus.FAILED -> "Failed"
+        BtStatus.DEMO -> "Demo"
         BtStatus.IDLE -> "Idle"
     }
 
@@ -202,7 +206,7 @@ private fun WaitingContent(status: BtStatus) {
                 }
                 else -> {
                     Icon(
-                        Icons.Filled.DirectionsBike,
+                        Icons.AutoMirrored.Filled.DirectionsBike,
                         contentDescription = null,
                         modifier = Modifier.size(52.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
