@@ -37,16 +37,11 @@ class BluetoothClient {
 
                 adapter.cancelDiscovery()
 
-                println("🔥 creating RFCOMM socket on channel 1")
+                println("🔥 creating RFCOMM socket via UUID")
 
-                // ✅ ЖЁСТКО на канал 1 — САМЫЙ СТАБИЛЬНЫЙ ВАРИАНТ
-                val method = device.javaClass.getMethod(
-                    "createRfcommSocket",
-                    Int::class.javaPrimitiveType
-                )
-
-                socket = method.invoke(device, 1) as BluetoothSocket
+                socket = device.createRfcommSocketToServiceRecord(uuid)
                 socket?.connect()
+                reader = BufferedReader(InputStreamReader(socket!!.inputStream))
 
                 println("✅ RFCOMM connected")
                 true

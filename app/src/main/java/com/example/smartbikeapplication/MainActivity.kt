@@ -23,14 +23,7 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestMultiplePermissions()
         ) { perms ->
             val granted = perms.values.all { it }
-            if (granted) {
-                val vm = SensorViewModel()
-                vm.startBluetooth(
-                    applicationContext,
-                    "2C:CF:67:20:C9:E0"
-                )
-
-            } else {
+            if (!granted) {
                 Log.e("BT", "Permissions denied")
             }
         }
@@ -41,12 +34,10 @@ class MainActivity : ComponentActivity() {
         requestBtPermissions()
 
         setContent {
-            setContent {
-                SmartBikeApplicationTheme {
-                    SensorsScreen(
-                        onOpenMap = {}
-                    )
-                }
+            SmartBikeApplicationTheme {
+                SensorsScreen(
+                    onOpenMap = {}
+                )
             }
         }
     }
