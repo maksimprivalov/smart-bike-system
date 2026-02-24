@@ -39,6 +39,7 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 mapboxsdk-plugin-locationlayer = { module = "org.maplibre.gl:mapboxsdk-plugin-locationlayer", version.ref = "mapboxsdkPluginLocationlayer" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
