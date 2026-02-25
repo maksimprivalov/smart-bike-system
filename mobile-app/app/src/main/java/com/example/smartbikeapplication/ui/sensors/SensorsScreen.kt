@@ -1,5 +1,16 @@
 package com.example.smartbikeapplication.ui.sensors
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,10 +34,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.smartbikeapplication.data.model.SensorResponse
 import com.example.smartbikeapplication.ui.main.BtStatus
 import com.example.smartbikeapplication.ui.main.SensorViewModel
+
+private const val BIKE_MAC = "2C:CF:67:20:C9:E0"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,12 +51,59 @@ fun SensorsScreen(
     val viewModel: SensorViewModel = viewModel()
     val state by viewModel.state.collectAsState()
     val status by viewModel.status.collectAsState()
-    LaunchedEffect(Unit) {
-        // TODO: switch to startBluetooth when Pi sensors are ready
-        viewModel.startDemo()
-        // val context = ... viewModel.startBluetooth(context.applicationContext, "2C:CF:67:20:C9:E0")
+    val signalLost by viewModel.signalLost.collectAsState()
+
+    val context = LocalContext.current
+    val activity = context as? android.app.Activity
+
+    var permissionDeniedPermanently by remember { mutableStateOf(false) }
+
+    // On Android 12+ BLUETOOTH_CONNECT is a runtime permission.
+    // On Android 11 and below, BLUETOOTH is a normal permission (granted at install).
+    val btPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        arrayOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    } else {
+        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 
+    fun isBtGranted() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.BLUETOOTH_CONNECT
+        ) == PackageManager.PERMISSION_GRANTED
+    } else {
+        true // granted automatically on Android 11 and below
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
+            permissionDeniedPermanently = false
+            viewModel.startBluetooth(context.applicationContext, BIKE_MAC)
+        } else {
+            // permanently denied = denied + shouldShowRationale is false
+            val canAskAgain = activity?.let {
+                ActivityCompat.shouldShowRequestPermissionRationale(
+                    it, Manifest.permission.BLUETOOTH_CONNECT
+                )
+            } ?: false
+            permissionDeniedPermanently = !canAskAgain
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (isBtGranted()) {
+            viewModel.startBluetooth(context.applicationContext, BIKE_MAC)
+        } else {
+            permissionLauncher.launch(btPermissions)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -62,43 +125,180 @@ fun SensorsScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Spacer(Modifier.height(4.dp))
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-            if (state == null) {
-                WaitingContent(status)
-            } else {
-                SpeedCard(state!!)
+        val waitingContent = @Composable {
+            WaitingContent(
+                status = status,
+                permissionDeniedPermanently = permissionDeniedPermanently,
+                onRetry = {
+                    if (isBtGranted()) viewModel.retry()
+                    else permissionLauncher.launch(btPermissions)
+                },
+                onOpenSettings = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                    )
+                }
+            )
+        }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+        val mapButton = @Composable {
+            Button(
+                onClick = { onOpenMap(state!!.gps.lat, state!!.gps.lon) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Filled.Map, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Open Map", fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (isLandscape) {
+            // ── Landscape layout ─────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Left column: Speed + GPS + System
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    GpsCard(state!!, modifier = Modifier.weight(1f))
-                    SystemCard(state!!, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.height(4.dp))
+                    if (state == null) {
+                        waitingContent()
+                    } else {
+                        SpeedCard(state!!)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            GpsCard(state!!, modifier = Modifier.weight(1f))
+                            SystemCard(state!!, modifier = Modifier.weight(1f))
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
 
-                Button(
-                    onClick = { onOpenMap(state!!.gps.lat, state!!.gps.lon) },
+                // Right column: Trip + Controls + Map
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(Icons.Filled.Map, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Open Map", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    if (state != null) {
+                        TripCard(state!!)
+                        ControlsCard(viewModel)
+                        mapButton()
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
             }
+        } else {
+            // ── Portrait layout ───────────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Spacer(Modifier.height(4.dp))
 
-            Spacer(Modifier.height(8.dp))
+                if (state == null) {
+                    waitingContent()
+                } else {
+                    SpeedCard(state!!)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        GpsCard(state!!, modifier = Modifier.weight(1f))
+                        SystemCard(state!!, modifier = Modifier.weight(1f))
+                    }
+                    TripCard(state!!)
+                    ControlsCard(viewModel)
+                    mapButton()
+                }
+
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+
+    // Signal lost / connection lost banner
+    val showBanner = signalLost || status == BtStatus.FAILED
+    val bannerText = when {
+        status == BtStatus.FAILED -> "Connection lost"
+        signalLost -> "No signal from Raspberry Pi..."
+        else -> ""
+    }
+    AnimatedVisibility(
+        visible = showBanner && state != null,
+        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+        modifier = Modifier.align(Alignment.TopCenter)
+    ) {
+        SignalLostBanner(
+            text = bannerText,
+            isDisconnected = status == BtStatus.FAILED,
+            onRetry = { viewModel.retry() }
+        )
+    }
+    } // end Box
+}
+
+@Composable
+private fun SignalLostBanner(
+    text: String,
+    isDisconnected: Boolean,
+    onRetry: () -> Unit
+) {
+    val color = if (isDisconnected) Color(0xFFF44336) else Color(0xFFFF9800)
+    val icon = if (isDisconnected) Icons.Filled.BluetoothDisabled else Icons.Filled.SignalWifiStatusbarConnectedNoInternet4
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text,
+            color = Color.White,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(
+            onClick = onRetry,
+            colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+        ) {
+            Text("Retry", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -160,7 +360,12 @@ private fun ConnectionChip(status: BtStatus) {
 }
 
 @Composable
-private fun WaitingContent(status: BtStatus) {
+private fun WaitingContent(
+    status: BtStatus,
+    permissionDeniedPermanently: Boolean,
+    onRetry: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -171,6 +376,33 @@ private fun WaitingContent(status: BtStatus) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (permissionDeniedPermanently) {
+                Icon(
+                    Icons.Filled.BluetoothDisabled,
+                    contentDescription = null,
+                    modifier = Modifier.size(52.dp),
+                    tint = Color(0xFFF44336)
+                )
+                Text(
+                    "Bluetooth permission required",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFF44336)
+                )
+                Text(
+                    "Permission was denied. Open Settings and enable\nBluetooth permissions manually.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Button(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open Settings")
+                }
+                return@Box
+            }
+
             when (status) {
                 BtStatus.CONNECTING -> {
                     CircularProgressIndicator(
@@ -202,6 +434,24 @@ private fun WaitingContent(status: BtStatus) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Button(onClick = onRetry) {
+                        Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Retry")
+                    }
+                }
+                BtStatus.IDLE -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(52.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp
+                    )
+                    Text(
+                        "Requesting Bluetooth permission...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 else -> {
@@ -295,6 +545,9 @@ private fun SpeedStat(label: String, value: String) {
 
 @Composable
 private fun GpsCard(state: SensorResponse, modifier: Modifier = Modifier) {
+    val fixColor = if (state.gps.fix) Color(0xFF4CAF50) else Color(0xFFF44336)
+    val fixLabel = if (state.gps.fix) "Fix OK" else "No fix"
+
     ElevatedCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -308,7 +561,7 @@ private fun GpsCard(state: SensorResponse, modifier: Modifier = Modifier) {
                 Icon(
                     Icons.Filled.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFF4CAF50),
+                    tint = fixColor,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(6.dp))
@@ -316,6 +569,13 @@ private fun GpsCard(state: SensorResponse, modifier: Modifier = Modifier) {
                     "GPS",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    fixLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = fixColor,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
@@ -391,10 +651,163 @@ private fun SystemCard(state: SensorResponse, modifier: Modifier = Modifier) {
                     color = if (state.system.headlight) Color(0xFFFFC107)
                             else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    state.system.headlight_mode,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             DataRow(label = "TURN", value = turnLabel)
             DataRow(label = "LUX", value = "${state.system.light_level}")
+        }
+    }
+}
+
+@Composable
+private fun TripCard(state: SensorResponse) {
+    val durationSec = state.trip.duration_sec
+    val minutes = durationSec / 60
+    val seconds = durationSec % 60
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.Route,
+                contentDescription = null,
+                tint = Color(0xFF9C27B0),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "TRIP",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.weight(1f))
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "%.2f km".format(state.trip.distance_km),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "%02d:%02d".format(minutes, seconds),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ControlsCard(viewModel: SensorViewModel) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "CONTROLS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Turn signals + Horn
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.sendTurnLeft() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Left", fontSize = 12.sp)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.sendTurnOff() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Off", fontSize = 12.sp)
+                }
+                OutlinedButton(
+                    onClick = { viewModel.sendTurnRight() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Right", fontSize = 12.sp)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            }
+
+            // Horn
+            Button(
+                onClick = { viewModel.sendHorn() },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Horn", fontWeight = FontWeight.Medium)
+            }
+
+            // Headlight mode
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(
+                "Headlight",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("auto", "on", "off").forEach { mode ->
+                    OutlinedButton(
+                        onClick = { viewModel.sendHeadlightMode(mode) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(mode.replaceFirstChar { it.uppercase() }, fontSize = 12.sp)
+                    }
+                }
+            }
         }
     }
 }

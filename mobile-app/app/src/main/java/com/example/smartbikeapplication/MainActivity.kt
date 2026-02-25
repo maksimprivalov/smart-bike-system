@@ -1,11 +1,8 @@
 package com.example.smartbikeapplication
 
-import android.Manifest
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -18,18 +15,8 @@ import com.example.smartbikeapplication.ui.theme.SmartBikeApplicationTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val bluetoothPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { perms ->
-            if (!perms.values.all { it }) {
-                Log.e("BT", "Permissions denied")
-            }
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestBtPermissions()
 
         setContent {
             SmartBikeApplicationTheme {
@@ -68,15 +55,5 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun requestBtPermissions() {
-        bluetoothPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        )
     }
 }

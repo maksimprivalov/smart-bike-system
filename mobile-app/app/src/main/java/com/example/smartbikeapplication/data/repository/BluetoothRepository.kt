@@ -26,5 +26,7 @@ class BluetoothRepository(
         }
     }
 
+    suspend fun sendCommand(json: String) = client.sendCommand(json)
+
     fun close() = client.close()
 }
