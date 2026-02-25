@@ -27,22 +27,6 @@ GPS = {
     "baudrate": 9600
 }
 
-# MQTT
-MQTT = {
-    "host": "localhost",
-    "port": 1883,
-    "topics": {
-        "gps": "smartbike/gps",
-        "speed": "smartbike/speed",
-        "light": "smartbike/light",
-        "headlight": "smartbike/headlight",
-        "turn": "smartbike/turn",
-        "buzzer": "smartbike/buzzer",
-        "trip": "smartbike/trip",
-        "status": "smartbike/status"
-    }
-}
-
 SIMULATION = {
     "gps": False,
     "speed_sensor": False,
